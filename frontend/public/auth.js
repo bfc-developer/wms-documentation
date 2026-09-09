@@ -37,18 +37,18 @@ class Auth {
             },
             body: JSON.stringify({ email, password })
         })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success && data.token) {
-                this.loginUser(data.token);
-            } else {
-                alert(data.message || 'Login failed');
-            }
-        })
-        .catch(error => {
-            console.error('Error sending login request:', error);
-            alert('An error occurred during login. Please try again.');
-        }); 
+            .then(response => response.json())
+            .then(data => {
+                if (data.success && data.token) {
+                    this.loginUser(data.token);
+                } else {
+                    alert(data.message || 'Login failed');
+                }
+            })
+            .catch(error => {
+                console.error('Error sending login request:', error);
+                alert('An error occurred during login. Please try again.');
+            });
     }
 
     loginUser(token) {
@@ -66,4 +66,4 @@ class Auth {
 // Initialize the application when DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {
     new Auth();
-});
+});
