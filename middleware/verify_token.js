@@ -1,5 +1,7 @@
-const User = require("../models/users")
+const User = require("../models/users");
 const jwt = require('jsonwebtoken');
+
+const JWT_SECRET = process.env.JWT_SECRET || 'wms-documentation-secret-key';
 
 async function verifyJwtTokenMiddleware(req, res, next) {
     try {
@@ -22,32 +24,44 @@ async function verifyJwtTokenMiddleware(req, res, next) {
 
 async function verifyJwtToken(token) {
     try {
-        const payload = decryptToken(token);
-        const userFound = await User.findOne({ email: payload?.email });
-        if (!userFound) {
-            return null;
-        };
+        // 1. Verify standard token signed with JWT_SECRET
+        try {
+            const decoded = jwt.verify(token, JWT_SECRET);
+            return decoded;
+        } catch (jwtErr) {
+            // Not signed with JWT_SECRET, try legacy fallback
+        }
 
-        const decoded = jwt.verify(token, userFound.authKey);
-        return decoded;
+        // 2. Legacy fallback for tokens signed with userFound.authKey
+        const payload = decryptToken(token);
+        if (payload?.email) {
+            try {
+                const userFound = await User.findOne({ email: payload.email });
+                if (userFound && userFound.authKey) {
+                    const decoded = jwt.verify(token, userFound.authKey);
+                    return decoded;
+                }
+            } catch (dbErr) {
+                // Database unavailable or query failed
+            }
+        }
+
+        return null;
     } catch (error) {
-        // console.log(error);
         return null;
     }
 }
 
 function decryptToken(token) {
-    // Split the token into its three parts
-    const parts = token.split('.');
-    const encodedHeader = parts[0];
-    const encodedPayload = parts[1];
-
-    // Decode the header
-    const decodedHeader = JSON.parse(atob(encodedHeader.replace(/-/g, '+').replace(/_/g, '/')));
-
-    // Decode the payload
-    const decodedPayload = JSON.parse(atob(encodedPayload.replace(/-/g, '+').replace(/_/g, '/')));
-    return decodedPayload;
+    try {
+        const parts = token.split('.');
+        const encodedPayload = parts[1];
+        if (!encodedPayload) return null;
+        const decodedPayload = JSON.parse(Buffer.from(encodedPayload.replace(/-/g, '+').replace(/_/g, '/'), 'base64').toString('utf-8'));
+        return decodedPayload;
+    } catch (e) {
+        return null;
+    }
 }
 
-module.exports = verifyJwtTokenMiddleware;
+module.exports = verifyJwtTokenMiddleware;
